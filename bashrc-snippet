@@ -1,0 +1,86 @@
+#!/usr/bin/bash
+
+OK="✅"
+ERR="⛔"
+
+FGWHITE="97m"
+FGRED="31m"
+FGGREEN="32m"
+FGBLUE="34m"
+
+BGRED="41m"
+BGGREEN="42m"
+BGBLUE="44m"
+BGYELLOW="43m"
+BGWHITE="107m"
+RESET="0m"
+
+LINECOLOR="97m"
+USERBGCOLOR="44m"
+INFOFGCOLOR=$FGBLUE
+INFOBGCOLOR=$BGWHITE
+
+svn_handler(){
+    SVN="$(svn info 2>/dev/null)"
+    SVNREV=""
+    SVNCOMMITS=""
+
+    if [[ -z "$SVN" ]];
+    then
+        SVNSYMBOL=$ERR
+    else
+        SVNSYMBOL="$OK"
+        if [[ "$SVN" =~ Revision:[[:space:]]([0-9]*) ]];
+        then
+            SVN_REV="${BASH_REMATCH[1]}"
+        fi
+    
+        SVNLIST="$(svn status -q 2>/dev/null)";
+    #echo "$SVNLIST"
+        if [[ "$SVNLIST" =~ [RMA] ]];
+        then
+            SVNCOMMITS="(\[\033[$FGRED\]uncommitted files\[\033[$INFOFGCOLOR\])"
+        else
+            SVNCOMMITS="(\[\033[$FGGREEN\]files up to date\[\033[$INFOFGCOLOR\])"
+        fi
+    fi
+}
+
+prompt_handler(){
+    svn_handler
+    C=${2/_SS/"$SVNSYMBOL"}
+
+
+    if [[ "${SVNSYMBOL}" == "${OK}" ]];
+    then
+        C=${C/_REV/"($SVN_REV)"}
+    else
+        C=${C/_REV/""}
+    fi
+
+    C=${C//_USERBGCOLOR/$USERBGCOLOR}
+    C=${C//_LINECOLOR/$LINECOLOR}
+    C=${C//_INFOCOLOR/$INFOFGCOLOR}
+    C=${C//_INFOBGCOLOR/$INFOBGCOLOR}
+    C=${C//_COMMIT/$SVNCOMMITS}
+    D=${3//_LINECOLOR/$LINECOLOR}
+
+    #echo "$C"
+
+    local A="$C[\A]"
+
+    while [[ $A =~ \\[\x1b\\[[0-9\;]*m\\] ]]; do
+       A=${A//"${BASH_REMATCH}"}
+    done
+
+    A=${A@P} \
+    A=$((COLUMNS-${#A}))
+
+    eval printf \
+        -v A ─%.s {2..$A}
+
+    PS1="$1$C${A}[\A]$D"
+}
+
+PROMPT_COMMAND='prompt_handler "\n" " \[\033[0;_LINECOLOR\]╭─\[\033[_USERBGCOLOR\]\[\033[37m\] \u \[\033[_INFOBGCOLOR\]\[\033[_INFOCOLOR\]►_REV_SS_COMMIT \w \[\033[0m\]\[\033[0;_LINECOLOR\]►" "\n \[\033[0;_LINECOLOR\]╰ \[\033[1;36m\]\$ \[\033[0m\]"'
+

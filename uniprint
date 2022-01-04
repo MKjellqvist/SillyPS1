@@ -1,0 +1,37 @@
+UnicodePointToUtf8()
+{
+    local x="$1"               # ok if '0x2620'
+    x=${x/\\u/0x}              # '\u2620' -> '0x2620'
+    x=${x/U+/0x}; x=${x/u+/0x} # 'U-2620' -> '0x2620'
+    x=$((x)) # from hex to decimal
+    local y=$x n=0
+    [ $x -ge 0 ] || return 1
+    while [ $y -gt 0 ]; do y=$((y>>1)); n=$((n+1)); done
+    if [ $n -le 7 ]; then       # 7
+        y=$x
+    elif [ $n -le 11 ]; then    # 5+6
+        y=" $(( ((x>> 6)&0x1F)+0xC0 )) \
+            $(( (x&0x3F)+0x80 ))" 
+    elif [ $n -le 16 ]; then    # 4+6+6
+        y=" $(( ((x>>12)&0x0F)+0xE0 )) \
+            $(( ((x>> 6)&0x3F)+0x80 )) \
+            $(( (x&0x3F)+0x80 ))"
+    else                        # 3+6+6+6
+        y=" $(( ((x>>18)&0x07)+0xF0 )) \
+            $(( ((x>>12)&0x3F)+0x80 )) \
+            $(( ((x>> 6)&0x3F)+0x80 )) \
+            $(( (x&0x3F)+0x80 ))"
+    fi
+    printf -v y '\\x%x' $y
+    echo -n -e $y
+}
+
+# test
+for (( i=0x200; i<0xfff; i++ )); do
+    UnicodePointToUtf8 $i
+    [ "$(( i+1 & 0x1f ))" != 0 ] || echo ""
+done
+x='U+2620'
+echo "$x -> $(UnicodePointToUtf8 $x)"
+
+
